@@ -101,7 +101,8 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
   </header>
 
   <nav class="tabs" id="tabs">
-    <button class="tab active" data-tab="fundamentals" type="button">Fundamentals</button>
+    <button class="tab active" data-tab="basics" type="button">Go Basics</button>
+    <button class="tab" data-tab="fundamentals" type="button">Fundamentals</button>
     <button class="tab" data-tab="rest" type="button">REST API</button>
     <button class="tab" data-tab="projects" type="button">Your Projects</button>
     <button class="tab" data-tab="systemdesign" type="button">System Design</button>
@@ -110,14 +111,215 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
 
   <main>
 
-  <section id="fundamentals" class="panel active">
+  <section id="basics" class="panel active">
+    <p class="intro">Actual Go syntax, mapped from Rust — before the concurrency/idiom stuff in the next tab. If you can't read a `for` loop or a receiver method cold, the deeper concepts won't land either.</p>
+
+    <article class="card" data-qid="b1">
+      <div class="card-top"><span class="pill">Variables &amp; zero values</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Declare a couple of variables in Go, and explain what a "zero value" is and why it matters that Go has no <code>Option&lt;T&gt;</code>.</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>var count int         // zero value: 0
+var name string       // zero value: ""
+var ready bool        // zero value: false
+total := 0             // := infers int, only valid inside a function
+count = 5               // no `mut` keyword needed — vars are mutable by default</code></pre><p>Every Go type has a zero value it takes on when declared without an initializer, so "declared but not yet meaningfully set" compiles and runs instead of being a compile error. There's no <code>Option&lt;T&gt;</code> wrapping every maybe-absent value — the absence of a real value and the zero value look identical unless you check separately, which is exactly why map lookups return a second <code>ok</code> boolean, and why a nil pointer is a distinct, checkable state.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Rust's <code>let</code> binding is immutable by default — <code>mut</code> is opt-in and compiler-enforced. <code>Option&lt;T&gt;</code> makes "no value" an explicit, matchable type most of the time.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li><code>var</code> works everywhere (including package scope) with an explicit or inferred type; <code>:=</code> only works inside functions, always inferred.</li>
+            <li>No <code>mut</code> keyword — everything <code>var</code>/<code>:=</code>-declared is reassignable; only <code>const</code> is fixed, and only for compile-time constant expressions.</li>
+            <li>Zero values: numeric types → 0, string → "", bool → false, pointers/slices/maps/channels/funcs/interfaces → nil.</li>
+            <li>Why it matters: a struct with a forgotten field silently holds its zero value rather than failing to compile — a real source of Go bugs that Rust's <code>Option</code>/<code>Default</code> require you to be explicit about.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>What's the difference between a nil slice and an empty (len 0) slice?</li>
+          <li>Why can you read from a nil map but not write to one?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="b2">
+      <div class="card-top"><span class="pill">Structs &amp; methods</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">How do you attach a method to a type in Go, and when do you use a pointer receiver vs a value receiver?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>type Counter struct { n int }
+
+func (c Counter) Value() int { return c.n }     // value receiver — gets a copy
+func (c *Counter) Inc()       { c.n++ }          // pointer receiver — mutates the original</code></pre><p>A method is a function with a receiver argument before its name. A value receiver operates on a copy of the struct (mutations inside don't escape the method); a pointer receiver operates on the original, so it's the only way to mutate state or avoid copying a large struct on every call.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Maps to <code>impl Counter { fn value(&amp;self) -&gt; i32 {...} fn inc(&amp;mut self) {...} }</code> — <code>&amp;self</code> ≈ value receiver, <code>&amp;mut self</code> ≈ pointer receiver.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>No <code>impl</code> block — methods are free functions with a receiver clause, and can live in any file in the same package.</li>
+            <li>Mixing receiver types on the same type is legal but bad practice — once any method needs to mutate, use pointer receivers consistently for that type.</li>
+            <li>Unlike Rust, a value receiver's copy isn't checked against concurrent mutation — no borrow checker means two goroutines can race on the same struct's fields with no compile-time warning.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>If <code>Counter</code> held a big slice, what's the cost of a value receiver by mistake?</li>
+          <li>Can an interface be satisfied by a pointer-receiver-only type if you only have a value in hand?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="b3">
+      <div class="card-top"><span class="pill">Slices, arrays &amp; maps</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">What's the actual structure of a Go slice under the hood, and what happens when you <code>append</code> past capacity?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>arr := [3]int{1, 2, 3}      // fixed-size array — length is part of the type
+s := []int{1, 2, 3}          // slice: a view over an underlying array
+s = append(s, 4)              // may reallocate if len == cap
+m := map[string]int{}         // map, reference type like a slice</code></pre><p>A slice is a small struct of (pointer, length, capacity) pointing at an underlying array — slicing an existing slice/array shares that memory rather than copying it, so mutating through one slice can be visible through another. <code>append</code> grows in place only while there's spare capacity; once it runs out, Go allocates a new, larger backing array and copies everything over, silently detaching the slice from whatever it used to share memory with.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>A Go slice is structurally close to <code>&amp;mut [T]</code> (a fat pointer: ptr+len) but growable like <code>Vec&lt;T&gt;</code> — Go collapses "borrowed view" and "owned growable buffer" into one type, which Rust deliberately keeps separate and enforces with the borrow checker.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>Arrays are value types (copied on assignment; <code>[3]int</code> and <code>[4]int</code> are different types); slices are reference-like (assignment copies the header, not the backing array).</li>
+            <li>Two slices from the same array can alias — write through one, see it through the other, until an <code>append</code> reallocates one of them.</li>
+            <li>Maps are reference types too; a nil map is readable (zero value + <code>ok=false</code>) but panics on write, unlike a nil slice which is safely appendable.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>Two slices share an underlying array — you append to one. Does the other see the change?</li>
+          <li>Why does Go make you pass a map by value into a function, yet mutations are still visible to the caller?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="b4">
+      <div class="card-top"><span class="pill">Control flow</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Go has one loop keyword. What does <code>for</code> cover that Rust splits into <code>for</code>, <code>while</code>, and <code>loop</code>?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>for i := 0; i &lt; 10; i++ { }   // classic C-style for
+for cond { }                    // while-style
+for { }                          // infinite loop
+for i, v := range items { }     // range-based iteration</code></pre><p>All four forms are the same <code>for</code> keyword with different clauses omitted. There's no <code>while</code>, no <code>loop</code>, no ternary operator, and no parentheses around conditions — but braces are mandatory even for a single-statement body, ruling out a whole class of dangling-else bugs.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Rust's <code>for x in iter</code>, <code>while cond</code>, and <code>loop { }</code> are three keywords for three of these same cases; Go picked one keyword and lets you drop clauses instead.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li><code>for range</code> over a slice gives (index, value); over a map gives (key, value) in randomized order — Go deliberately randomizes map iteration to stop anyone relying on it.</li>
+            <li><code>break</code>/<code>continue</code> support labels for jumping out of nested loops.</li>
+            <li><code>switch</code> doesn't fall through by default (opposite of C) — needs an explicit <code>fallthrough</code>, and cases can be non-constant expressions.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How would you break out of two nested loops at once in Go?</li>
+          <li>What happens if you modify a map while range-ing over it?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="b5">
+      <div class="card-top"><span class="pill">Pointers, no borrow checker</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Go has pointers, <code>&amp;</code> and <code>*</code>. What safety does Rust's borrow checker give you that Go's garbage collector doesn't?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>func inc(n *int) { *n++ }
+x := 5
+inc(&amp;x)   // x is now 6 — pointer lets the function mutate the caller's variable</code></pre><p>Go pointers work like C's, minus pointer arithmetic. Because Go is garbage collected, there's no use-after-free or dangling pointer risk — the runtime keeps anything still reachable through a pointer alive. What it doesn't give you is compile-time aliasing safety: nothing stops two goroutines from holding a pointer to the same value and mutating it concurrently with no warning.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Rust's borrow checker enforces, at compile time, that a value has either one mutable reference or many immutable ones, never both. Go has no equivalent — the same aliasing pattern that's a compile error in Rust is just normal Go code, and a possible data race the <code>-race</code> detector might catch at runtime, if you run it.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>No lifetimes — Go doesn't need them because the GC keeps referenced memory alive regardless of how many pointers point at it or for how long.</li>
+            <li>Escape analysis decides stack vs heap automatically — no <code>Box::new</code> equivalent; the compiler infers it from whether a pointer to the value escapes the function.</li>
+            <li>The real safety gap: concurrent mutation through shared pointers is legal and silent — exactly why <code>go build -race</code> and disciplined mutex/channel use matter so much, where Rust would have refused to compile the unsafe pattern.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>When does the Go compiler put a local variable on the heap instead of the stack, and how would you check?</li>
+          <li>Given no borrow checker, how do you personally guard against a data race in review?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="b6">
+      <div class="card-top"><span class="pill">Multiple returns &amp; error idiom</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Go doesn't have tuples generally, but functions return multiple values natively. How does that shape day-to-day error handling?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>func divide(a, b int) (int, error) {
+    if b == 0 {
+        return 0, errors.New("divide by zero")
+    }
+    return a / b, nil
+}
+
+result, err := divide(10, 0)
+if err != nil {
+    // handle it
+}</code></pre><p>Multiple return values are a language feature, not a tuple/struct trick — <code>(int, error)</code> is a real two-value return, and the <code>(value, error)</code> pairing is pure convention, not something the compiler enforces the way <code>Result&lt;T,E&gt;</code> does. The zero value of the first return is what gets returned alongside a non-nil error, by convention — callers are expected to ignore it whenever <code>err != nil</code>.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Compare to the Error Handling card in Fundamentals — <code>Result&lt;T,E&gt;</code> bundles success/failure into one enum the compiler forces you to handle; Go's <code>(T, error)</code> is two independent values with no such enforcement.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>Multiple return is used outside error handling too — map lookups (<code>v, ok := m[k]</code>), type assertions (<code>v, ok := x.(string)</code>).</li>
+            <li>Named return values let you declare the return variables in the signature and just <code>return</code> bare — useful with <code>defer</code> for adjusting an error right before the function exits.</li>
+            <li>Same convention-not-enforcement gap as the Fundamentals Error Handling card — worth connecting the two in an interview answer.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>What's a named return value, and why might <code>defer</code> want one?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="b7">
+      <div class="card-top"><span class="pill">Packages &amp; visibility</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">How does Go decide what's public vs private, and what's the Go equivalent of Cargo.toml / a crate?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><pre><code>// go.mod
+module github.com/you/project
+go 1.22
+
+// file: user.go, package "models"
+type User struct {
+    Name string   // exported — capitalized
+    email string  // unexported — lowercase, package-private
+}</code></pre><p>Visibility is decided purely by capitalization — no <code>pub</code> keyword. An identifier starting with an uppercase letter is exported and visible outside its package; lowercase stays private to the package. A package is just "the set of .go files in one directory declaring the same package name" — there's no nested module tree like Rust's <code>mod a::b::c</code>; you get one flat namespace per directory, and depth comes from directory structure instead.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span><code>go.mod</code> + <code>go.sum</code> ≈ <code>Cargo.toml</code> + <code>Cargo.lock</code>. Rust's <code>pub</code>/<code>pub(crate)</code> visibility keywords become Go's capitalization convention — there's no equivalent of <code>pub(crate)</code>'s in-between visibility; it's exported-everywhere or private-to-the-package, full stop.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li><code>go.mod</code> declares the module path (also the import path prefix) and Go version; <code>go.sum</code> pins dependency checksums, playing the <code>Cargo.lock</code> role.</li>
+            <li>A directory is a package; <code>import "github.com/you/project/models"</code> pulls in everything exported from that directory's package.</li>
+            <li>No sub-module privacy tier: if related packages need to share unexported internals, the convention is an <code>internal/</code> directory, which the compiler specially restricts to importers within the same module tree.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>Where would you put code several of your own packages need, that external importers shouldn't be able to use?</li>
+        </ul></div>
+      </div>
+    </article>
+  </section>
+
+  <section id="fundamentals" class="panel">
     <p class="intro">Every concept below maps to something you already know from Tokio. Explain it <strong>out loud in the Go terms first</strong> — the Rust column is there to check yourself, not to lean on.</p>
 
     <article class="card" data-qid="f1">
       <div class="card-top"><span class="pill">Goroutines &amp; the scheduler</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">You mentioned Go's M:N threading model in a mock interview but couldn't go deeper than the name. Explain the GMP model precisely — what are G, M, and P, and how does a goroutine actually get onto a CPU?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>Go's concurrency model is built on three moving pieces the runtime juggles for you: <b>G</b> (goroutine — a lightweight, user-space unit of work with a tiny growable stack), <b>M</b> (machine — a real OS thread the kernel schedules), and <b>P</b> (processor — a logical execution context, one per <code>GOMAXPROCS</code>, that an M must hold to run Go code). A goroutine doesn't map to a thread 1:1; many G's queue up on each P, and the scheduler hands them to whichever M is free, work-stealing from other P's queues when its own runs dry. That's what "M:N" means — M goroutines multiplexed onto N OS threads. Since Go 1.14, the runtime can even interrupt a goroutine mid-loop via a signal if it's hogging a P too long, so one runaway goroutine can't starve the rest.</p></div>
+      <div class="teach-body" hidden><pre><code>func worker(id int) { fmt.Println("worker", id) }
+
+for i := 0; i &lt; 5; i++ {
+    go worker(i)   // launches a goroutine — returns immediately, doesn't block
+}</code></pre><p>Go's concurrency model is built on three moving pieces the runtime juggles for you: <b>G</b> (goroutine — a lightweight, user-space unit of work with a tiny growable stack), <b>M</b> (machine — a real OS thread the kernel schedules), and <b>P</b> (processor — a logical execution context, one per <code>GOMAXPROCS</code>, that an M must hold to run Go code). A goroutine doesn't map to a thread 1:1; many G's queue up on each P, and the scheduler hands them to whichever M is free, work-stealing from other P's queues when its own runs dry. That's what "M:N" means — M goroutines multiplexed onto N OS threads. Since Go 1.14, the runtime can even interrupt a goroutine mid-loop via a signal if it's hogging a P too long, so one runaway goroutine can't starve the rest.</p></div>
       <textarea class="ans" placeholder="Say it out loud, then type your attempt..." rows="4"></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -142,7 +344,18 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Channels &amp; select</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">Compare Go's buffered vs unbuffered channels and the <code>select</code> statement to what you'd reach for in Tokio.</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>A channel is Go's built-in typed pipe between goroutines. <b>Unbuffered</b> channels have zero capacity — a send blocks until some goroutine is ready to receive at that exact moment, making it a synchronization point as much as a data transfer. <b>Buffered</b> channels (<code>make(chan T, n)</code>) hold up to n values before a send blocks, letting producer and consumer run at different paces. <code>select</code> lets a goroutine wait on multiple channel operations at once and proceeds with whichever becomes ready first — with a <code>default</code> case, it becomes non-blocking. The Go proverb behind all of it: "don't communicate by sharing memory, share memory by communicating."</p></div>
+      <div class="teach-body" hidden><pre><code>ch := make(chan int)         // unbuffered
+buffered := make(chan int, 3) // buffered, capacity 3
+
+go func() { ch &lt;- 42 }()      // blocks until someone receives
+v := &lt;-ch                      // receives 42
+
+select {
+case v := &lt;-ch:
+    fmt.Println(v)
+default:
+    fmt.Println("nothing ready")
+}</code></pre><p>A channel is Go's built-in typed pipe between goroutines. <b>Unbuffered</b> channels have zero capacity — a send blocks until some goroutine is ready to receive at that exact moment, making it a synchronization point as much as a data transfer. <b>Buffered</b> channels (<code>make(chan T, n)</code>) hold up to n values before a send blocks, letting producer and consumer run at different paces. <code>select</code> lets a goroutine wait on multiple channel operations at once and proceeds with whichever becomes ready first — with a <code>default</code> case, it becomes non-blocking. The Go proverb behind all of it: "don't communicate by sharing memory, share memory by communicating."</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -166,7 +379,17 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">sync primitives</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q"><code>sync.Mutex</code>, <code>sync.WaitGroup</code>, and the <code>sync/atomic</code> package — what do they buy you, and what's the sharpest difference from the Rust equivalents?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p><code>sync.Mutex</code> is a bare lock: call <code>.Lock()</code> before touching shared data and <code>.Unlock()</code> when done, but the compiler enforces none of it — the "protected" data is just a regular field sitting next to the mutex by convention. <code>sync.WaitGroup</code> lets one goroutine wait for a set of others to finish: <code>Add(n)</code> before launching them, each calls <code>Done()</code> when finished, <code>Wait()</code> blocks until the counter hits zero. <code>sync/atomic</code> gives lock-free primitives (<code>atomic.Int64</code>, compare-and-swap) for simple counters or flags where a full mutex would be overkill.</p></div>
+      <div class="teach-body" hidden><pre><code>var mu sync.Mutex
+var count int
+
+mu.Lock()
+count++            // nothing forces this — on you to lock before touching count
+mu.Unlock()
+
+var wg sync.WaitGroup
+wg.Add(1)
+go func() { defer wg.Done(); doWork() }()
+wg.Wait()</code></pre><p><code>sync.Mutex</code> is a bare lock: call <code>.Lock()</code> before touching shared data and <code>.Unlock()</code> when done, but the compiler enforces none of it — the "protected" data is just a regular field sitting next to the mutex by convention. <code>sync.WaitGroup</code> lets one goroutine wait for a set of others to finish: <code>Add(n)</code> before launching them, each calls <code>Done()</code> when finished, <code>Wait()</code> blocks until the counter hits zero. <code>sync/atomic</code> gives lock-free primitives (<code>atomic.Int64</code>, compare-and-swap) for simple counters or flags where a full mutex would be overkill.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -189,7 +412,13 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Error handling</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">Go has no <code>Result&lt;T,E&gt;</code> — errors are just values. Explain <code>errors.Is</code> vs <code>errors.As</code> and how <code>%w</code> wrapping works, and name the one safety property Go gives up here that Rust doesn't.</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>In Go, an error is any value satisfying <code>interface{ Error() string }</code> — there's no special language support, no exceptions. The convention is a function returns <code>(result, error)</code> and the caller checks <code>if err != nil</code>. <code>fmt.Errorf("context: %w", err)</code> wraps an error while keeping the original accessible in a chain. <code>errors.Is(err, target)</code> asks "does this chain contain that specific sentinel error" (e.g. <code>sql.ErrNoRows</code>). <code>errors.As(err, &amp;target)</code> asks "does this chain contain an error of this concrete type," and if so assigns it into <code>target</code> so you can read its fields.</p></div>
+      <div class="teach-body" hidden><pre><code>_, err := os.Open("config.yaml")
+if err != nil {
+    wrapped := fmt.Errorf("loading config: %w", err)
+    if errors.Is(wrapped, os.ErrNotExist) {
+        // handle missing file specifically
+    }
+}</code></pre><p>In Go, an error is any value satisfying <code>interface{ Error() string }</code> — there's no special language support, no exceptions. The convention is a function returns <code>(result, error)</code> and the caller checks <code>if err != nil</code>. <code>fmt.Errorf("context: %w", err)</code> wraps an error while keeping the original accessible in a chain. <code>errors.Is(err, target)</code> asks "does this chain contain that specific sentinel error" (e.g. <code>sql.ErrNoRows</code>). <code>errors.As(err, &amp;target)</code> asks "does this chain contain an error of this concrete type," and if so assigns it into <code>target</code> so you can read its fields.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -213,7 +442,11 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Interfaces vs traits</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">How does a Go type satisfy an interface, and how is that fundamentally different from implementing a Rust trait?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>A Go interface is a set of method signatures. Any type that happens to implement all of them satisfies the interface automatically — there's no <code>impl InterfaceName for Type</code> anywhere; the compiler just checks the method set matches wherever the interface is used. This is structural typing (sometimes called "duck typing, but statically checked"): you can define a two-line interface in your own package and pass in a struct from a totally unrelated library, as long as its methods line up — and a type can satisfy interfaces its author never even knew existed.</p></div>
+      <div class="teach-body" hidden><pre><code>type Stringer interface { String() string }
+
+type Point struct{ X, Y int }
+func (p Point) String() string { return fmt.Sprintf("(%d,%d)", p.X, p.Y) }
+// Point satisfies Stringer automatically — no "impl Stringer for Point" anywhere</code></pre><p>A Go interface is a set of method signatures. Any type that happens to implement all of them satisfies the interface automatically — there's no <code>impl InterfaceName for Type</code> anywhere; the compiler just checks the method set matches wherever the interface is used. This is structural typing (sometimes called "duck typing, but statically checked"): you can define a two-line interface in your own package and pass in a struct from a totally unrelated library, as long as its methods line up — and a type can satisfy interfaces its author never even knew existed.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -237,7 +470,13 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Struct embedding</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">Go doesn't have inheritance, but it has struct embedding. What does embedding actually do, and where does the "not inheritance" distinction bite you?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>Struct embedding nests one struct (or interface) inside another without naming the field, e.g. <code>type Server struct { *log.Logger }</code>. Go "promotes" the embedded type's methods and fields up to the outer struct, so <code>server.Println(...)</code> works even though <code>Println</code> is defined on <code>*log.Logger</code>. It looks like inheritance but is really automatic delegation — there's no dynamic dispatch. If <code>Server</code> defines its own <code>Println</code>, it simply shadows the embedded one; calls from inside the embedded type's own methods still go to the embedded type's version, never the outer "override."</p></div>
+      <div class="teach-body" hidden><pre><code>type Base struct{}
+func (Base) Greet() string { return "hi from Base" }
+
+type Outer struct { Base }   // embedded, unnamed field
+
+o := Outer{}
+o.Greet()   // "hi from Base" — promoted from Base</code></pre><p>Struct embedding nests one struct (or interface) inside another without naming the field, e.g. <code>type Server struct { *log.Logger }</code>. Go "promotes" the embedded type's methods and fields up to the outer struct, so <code>server.Println(...)</code> works even though <code>Println</code> is defined on <code>*log.Logger</code>. It looks like inheritance but is really automatic delegation — there's no dynamic dispatch. If <code>Server</code> defines its own <code>Println</code>, it simply shadows the embedded one; calls from inside the embedded type's own methods still go to the embedded type's version, never the outer "override."</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -263,7 +502,11 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">PUT vs PATCH</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">Define PUT vs PATCH precisely — including the idempotency claim people usually get wrong about PATCH.</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>REST's HTTP verbs each carry a contract beyond "this action happens." <b>PUT</b> means: here is the complete, final state of this resource — store exactly this. <b>PATCH</b> means: here is a set of changes — apply them to whatever the resource currently is. That distinction is why PUT is idempotent by definition (replacing with the same full state twice is a no-op the second time), while PATCH's idempotency depends entirely on what the patch operation says: "set field to X" is idempotent, "append to array" or "increment" is not.</p></div>
+      <div class="teach-body" hidden><pre><code>PUT /users/5
+{ "name": "Sabin", "email": "s@x.com" }   // full resource — omit email, it's cleared
+
+PATCH /users/5
+{ "email": "new@x.com" }                    // only this field changes</code></pre><p>REST's HTTP verbs each carry a contract beyond "this action happens." <b>PUT</b> means: here is the complete, final state of this resource — store exactly this. <b>PATCH</b> means: here is a set of changes — apply them to whatever the resource currently is. That distinction is why PUT is idempotent by definition (replacing with the same full state twice is a no-op the second time), while PATCH's idempotency depends entirely on what the patch operation says: "set field to X" is idempotent, "append to array" or "increment" is not.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -285,7 +528,11 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Status codes</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">When do you return 200 vs 201 vs 204? And 400 vs 422? And 401 vs 403?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>HTTP status codes fall into families: 2xx means success (with sub-distinctions for what kind of success — created vs. no body vs. accepted-but-async), 4xx means the client did something wrong (malformed, not authenticated, not permitted, not found, conflicting state), 5xx means the server broke. The skill isn't memorizing every code — it's picking the one whose stated meaning genuinely matches the situation. A 404 for "you're not allowed to see this" hides whether the resource exists at all from an unauthorized caller, which is sometimes exactly the point and sometimes a bug that breaks legitimate error messages.</p></div>
+      <div class="teach-body" hidden><pre><code>POST /users              -&gt; 201 Created, Location: /users/42
+GET  /users/42            -&gt; 200 OK
+DELETE /users/42          -&gt; 204 No Content
+POST /users (bad json)    -&gt; 400 Bad Request
+POST /users (email taken) -&gt; 422 Unprocessable Entity</code></pre><p>HTTP status codes fall into families: 2xx means success (with sub-distinctions for what kind of success — created vs. no body vs. accepted-but-async), 4xx means the client did something wrong (malformed, not authenticated, not permitted, not found, conflicting state), 5xx means the server broke. The skill isn't memorizing every code — it's picking the one whose stated meaning genuinely matches the situation. A 404 for "you're not allowed to see this" hides whether the resource exists at all from an unauthorized caller, which is sometimes exactly the point and sometimes a bug that breaks legitimate error messages.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -308,7 +555,8 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Resource naming &amp; versioning</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">What makes a URL scheme "RESTful" in terms of naming, and how would you version an API?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>REST resource design treats a URL as a noun identifying a thing, and the HTTP method as the verb acting on it. A collection is plural (<code>/users</code>); a specific member is the collection plus an identifier (<code>/users/42</code>); a sub-resource nests only when it's genuinely owned by the parent and doesn't make sense standalone (<code>/users/42/orders</code>). Versioning exists because a breaking change to a resource's shape can't just silently ship — either the URL declares the version, or the client negotiates it via a header. Both are legitimate as long as the team is consistent and has an actual deprecation policy.</p></div>
+      <div class="teach-body" hidden><pre><code>GET /v1/users/42/orders     // nested — orders genuinely belong to a user
+GET /v1/orders?userId=42    // flatten instead, once nesting gets deep</code></pre><p>REST resource design treats a URL as a noun identifying a thing, and the HTTP method as the verb acting on it. A collection is plural (<code>/users</code>); a specific member is the collection plus an identifier (<code>/users/42</code>); a sub-resource nests only when it's genuinely owned by the parent and doesn't make sense standalone (<code>/users/42/orders</code>). Versioning exists because a breaking change to a resource's shape can't just silently ship — either the URL declares the version, or the client negotiates it via a header. Both are legitimate as long as the team is consistent and has an actual deprecation policy.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -329,7 +577,8 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Pagination</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">Offset/limit pagination vs cursor-based — what breaks with offset/limit at scale?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>Any pagination scheme answers "given this page, how do I get the next one." <b>Offset/limit</b> answers with a row count to skip — trivial to implement, but the database still has to scan past <code>offset</code> rows to find where to start, and if a row is inserted or deleted while you're paging, your window drifts and you can see a duplicate or skip an item. <b>Cursor (keyset) pagination</b> instead answers with "the last thing you saw" — usually an indexed column's value — and asks for rows after that. It's stable under concurrent writes and its cost doesn't grow with depth, at the cost of losing random access to an arbitrary page number.</p></div>
+      <div class="teach-body" hidden><pre><code>GET /items?offset=2000&amp;limit=20        // offset/limit: slow + driftable at depth
+GET /items?after=item_1999&amp;limit=20    // cursor: stable, indexed lookup</code></pre><p>Any pagination scheme answers "given this page, how do I get the next one." <b>Offset/limit</b> answers with a row count to skip — trivial to implement, but the database still has to scan past <code>offset</code> rows to find where to start, and if a row is inserted or deleted while you're paging, your window drifts and you can see a duplicate or skip an item. <b>Cursor (keyset) pagination</b> instead answers with "the last thing you saw" — usually an indexed column's value — and asks for rows after that. It's stable under concurrent writes and its cost doesn't grow with depth, at the cost of losing random access to an arbitrary page number.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
@@ -349,7 +598,13 @@ textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
       <div class="card-top"><span class="pill">Error response shape</span><button class="mark" type="button">Mark drilled</button></div>
       <p class="q">What does a well-designed error response body look like, and why?</p>
       <button class="teach-toggle" type="button">Teach me this first</button>
-      <div class="teach-body" hidden><p>An API's error responses are part of its contract just as much as its success responses — a client needs to parse and branch on them programmatically, not just display them. The core idea is separating a stable, machine-readable <code>code</code> a client can switch on from a human-readable <code>message</code> that can change wording freely without breaking anyone's integration. Consistency matters more than any specific shape: every endpoint should return errors in the same envelope, or client code ends up special-casing each one.</p></div>
+      <div class="teach-body" hidden><pre><code>{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "email is already in use",
+    "fields": ["email"]
+  }
+}</code></pre><p>An API's error responses are part of its contract just as much as its success responses — a client needs to parse and branch on them programmatically, not just display them. The core idea is separating a stable, machine-readable <code>code</code> a client can switch on from a human-readable <code>message</code> that can change wording freely without breaking anyone's integration. Consistency matters more than any specific shape: every endpoint should return errors in the same envelope, or client code ends up special-casing each one.</p></div>
       <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
       <button class="reveal-toggle" type="button">Reveal breakdown</button>
       <div class="reveal-body" hidden>
