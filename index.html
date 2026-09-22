@@ -1,0 +1,771 @@
+<title>Rust→Go Drill</title>
+<style>
+:root{
+  --bg:#f5f7f6; --surface:#ffffff; --surface-2:#eef2f1; --border:#dbe4e2;
+  --text:#16211f; --text-dim:#54635f; --text-faint:#8b9895;
+  --go:#0087a8; --go-bg:#e3f4f8;
+  --rust:#b6401f; --rust-bg:#fbe9e4;
+  --good:#1f8a4c; --warn:#a86a00; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'Manrope',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101615; --surface:#171f1d; --surface-2:#1e2725; --border:#2a3532;
+    --text:#e9efec; --text-dim:#a3b0ac; --text-faint:#6f7c78;
+    --go:#3ec6e8; --go-bg:#122a30;
+    --rust:#e37a56; --rust-bg:#2c1912;
+    --good:#5fd68b; --warn:#e0ab4c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101615; --surface:#171f1d; --surface-2:#1e2725; --border:#2a3532;
+  --text:#e9efec; --text-dim:#a3b0ac; --text-faint:#6f7c78;
+  --go:#3ec6e8; --go-bg:#122a30;
+  --rust:#e37a56; --rust-bg:#2c1912;
+  --good:#5fd68b; --warn:#e0ab4c;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5}
+.page{max-width:860px;margin:0 auto;padding:0 16px 64px}
+h1,h2,h3{font-family:var(--mono);font-weight:600;letter-spacing:-0.01em}
+code,pre,.mono{font-family:var(--mono)}
+pre{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:12.5px;line-height:1.6}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0 12px;background:var(--bg);flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.brand-mark{font-family:var(--mono);font-size:19px;font-weight:700}
+.brand-mark .arrow{color:var(--go);margin:0 2px}
+.brand-sub{color:var(--text-dim);font-size:13px}
+.progress{font-family:var(--mono);font-size:12px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.tabs{position:sticky;top:calc(env(safe-area-inset-top,0px) + 54px);z-index:5;display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;background:var(--bg);border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{font-family:var(--sans);font-weight:700;font-size:13px;white-space:nowrap;background:transparent;border:1px solid transparent;color:var(--text-dim);padding:8px 12px;border-radius:8px;cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--surface);border-color:var(--border);color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.intro{color:var(--text-dim);font-size:14.5px;margin:0 0 20px;max-width:64ch}
+.intro strong{color:var(--text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+.card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.pill{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--go);background:var(--go-bg);padding:4px 9px;border-radius:999px}
+.mark{font-family:var(--sans);font-size:12px;font-weight:700;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:6px 10px;border-radius:7px;cursor:pointer}
+.mark[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:#06210f}
+.q{font-size:15px;margin:0 0 10px;font-weight:600}
+.q em{color:var(--text-dim);font-weight:500;font-style:normal;display:block;font-size:13px;margin-top:4px}
+textarea.ans{width:100%;min-height:88px;resize:vertical;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:14px;padding:10px 12px}
+textarea.ans:focus{outline:2px solid var(--go);outline-offset:1px}
+.reveal-toggle{margin-top:10px;font-family:var(--sans);font-weight:700;font-size:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer}
+.reveal-toggle:hover{border-color:var(--go)}
+.reveal-body{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)}
+.teach-toggle{margin:2px 0 10px;font-family:var(--sans);font-weight:700;font-size:12.5px;background:var(--go-bg);border:1px solid var(--go);color:var(--go);padding:6px 10px;border-radius:7px;cursor:pointer}
+.teach-toggle:hover{opacity:.8}
+.teach-body{background:var(--go-bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13.5px;color:var(--text)}
+.teach-body p{margin:0 0 8px}
+.teach-body p:last-child{margin-bottom:0}
+.block{border-left:3px solid var(--border);padding:2px 0 2px 12px;margin-bottom:10px;font-size:13.5px;color:var(--text-dim)}
+.block strong{color:var(--text)}
+.block.rust{border-color:var(--rust)}
+.block.rust .label{color:var(--rust)}
+.block.go{border-color:var(--go)}
+.block.go .label{color:var(--go)}
+.block.rubric{border-color:var(--good)}
+.block.rubric .label{color:var(--good)}
+.label{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.block ul{margin:4px 0 0;padding-left:18px}
+.block li{margin-bottom:3px}
+.followups{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:13px}
+.fu-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--warn);margin:0 0 6px}
+.followups ul{margin:0;padding-left:18px;color:var(--text)}
+.followups li{margin-bottom:3px}
+.rubric-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px}
+.rubric-card h3{margin:0 0 8px;font-size:15px}
+.rubric-card p{margin:0 0 10px;font-size:13.5px;color:var(--text-dim)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.step{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12.5px}
+.step b{display:block;font-family:var(--mono);font-size:11px;color:var(--go);text-transform:uppercase;margin-bottom:4px}
+@media (max-width:520px){.steps{grid-template-columns:1fr 1fr}}
+.linter-out{margin-top:12px;display:none;gap:8px;flex-direction:column}
+.linter-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px}
+.linter-row .v{font-family:var(--mono);font-weight:700}
+.tag-ok{color:var(--good)}
+.tag-warn{color:var(--warn)}
+.fillers{font-size:12.5px;color:var(--text-dim);margin-top:2px}
+</style>
+
+<div class="page">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">Rust<span class="arrow">→</span>Go</span>
+      <span class="brand-sub">Interview Drill</span>
+    </div>
+    <div class="progress" id="progress">0 / 0 drilled</div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="fundamentals" type="button">Fundamentals</button>
+    <button class="tab" data-tab="rest" type="button">REST API</button>
+    <button class="tab" data-tab="projects" type="button">Your Projects</button>
+    <button class="tab" data-tab="systemdesign" type="button">System Design</button>
+    <button class="tab" data-tab="structure" type="button">Structure Coach</button>
+  </nav>
+
+  <main>
+
+  <section id="fundamentals" class="panel active">
+    <p class="intro">Every concept below maps to something you already know from Tokio. Explain it <strong>out loud in the Go terms first</strong> — the Rust column is there to check yourself, not to lean on.</p>
+
+    <article class="card" data-qid="f1">
+      <div class="card-top"><span class="pill">Goroutines &amp; the scheduler</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">You mentioned Go's M:N threading model in a mock interview but couldn't go deeper than the name. Explain the GMP model precisely — what are G, M, and P, and how does a goroutine actually get onto a CPU?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>Go's concurrency model is built on three moving pieces the runtime juggles for you: <b>G</b> (goroutine — a lightweight, user-space unit of work with a tiny growable stack), <b>M</b> (machine — a real OS thread the kernel schedules), and <b>P</b> (processor — a logical execution context, one per <code>GOMAXPROCS</code>, that an M must hold to run Go code). A goroutine doesn't map to a thread 1:1; many G's queue up on each P, and the scheduler hands them to whichever M is free, work-stealing from other P's queues when its own runs dry. That's what "M:N" means — M goroutines multiplexed onto N OS threads. Since Go 1.14, the runtime can even interrupt a goroutine mid-loop via a signal if it's hogging a P too long, so one runaway goroutine can't starve the rest.</p></div>
+      <textarea class="ans" placeholder="Say it out loud, then type your attempt..." rows="4"></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Tokio's multi-thread runtime is <em>also</em> M:N: many tasks scheduled onto a fixed pool of worker OS threads (default = num_cpus), each with its own local work-stealing run queue. Structurally this is very close to Go — the real differences are elsewhere.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li><b>G</b> = goroutine: the unit of work, a function plus a small (~2KB, growable/copyable) stack.</li>
+            <li><b>M</b> = machine: an actual OS thread.</li>
+            <li><b>P</b> = processor: a logical context, count set by <code>GOMAXPROCS</code>. A P holds a local run queue of G's and must be held by an M to execute Go code.</li>
+            <li>The scheduler multiplexes G's onto P's onto M's; idle P's steal work from busy P's local queues (and a global queue) so no core sits idle while another has a backlog.</li>
+            <li>Key divergence from Tokio: since Go 1.14, the runtime can <strong>asynchronously preempt</strong> a goroutine that's been running too long (signal-based, checked at function-call/loop safepoints), so a CPU-bound goroutine can't starve the scheduler. Tokio has no equivalent — a tight loop without an <code>.await</code> point blocks its worker thread outright.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>What happens if you set <code>GOMAXPROCS=1</code> — do goroutines still run concurrently?</li>
+          <li>Why can a goroutine block an OS thread anyway (e.g. a blocking syscall), and how does the runtime cope?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="f2">
+      <div class="card-top"><span class="pill">Channels &amp; select</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Compare Go's buffered vs unbuffered channels and the <code>select</code> statement to what you'd reach for in Tokio.</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>A channel is Go's built-in typed pipe between goroutines. <b>Unbuffered</b> channels have zero capacity — a send blocks until some goroutine is ready to receive at that exact moment, making it a synchronization point as much as a data transfer. <b>Buffered</b> channels (<code>make(chan T, n)</code>) hold up to n values before a send blocks, letting producer and consumer run at different paces. <code>select</code> lets a goroutine wait on multiple channel operations at once and proceeds with whichever becomes ready first — with a <code>default</code> case, it becomes non-blocking. The Go proverb behind all of it: "don't communicate by sharing memory, share memory by communicating."</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span><code>tokio::sync::mpsc</code> (bounded ≈ buffered, unbounded ≈ "infinite buffer"), <code>oneshot</code> for a single value, and <code>tokio::select!</code> for multiplexing several async ops with an optional <code>else</code>.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>Unbuffered <code>chan</code>: send blocks until a receiver is ready — a synchronous rendezvous, not a queue.</li>
+            <li>Buffered <code>chan T, n</code>: send only blocks once the buffer of size n is full — decouples producer/consumer pace up to that limit.</li>
+            <li><code>select</code> picks whichever ready case fires first among several channel ops, at random if multiple are ready; a <code>default</code> case makes it non-blocking, like Tokio's <code>select!</code> with a fallback branch.</li>
+            <li>Divergence: Go channels are native multi-producer <em>multi-consumer</em> — <code>mpsc</code> is single-consumer by name, so fan-out needs a broadcast/watch channel. And closing a Go channel broadcasts to every receiver (reads drain then return the zero value with <code>ok=false</code>) — there's no built-in Rust equivalent to "close."</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>What happens if you send on a closed channel? Receive from one?</li>
+          <li>Why would you deliberately use a nil channel in a select statement?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="f3">
+      <div class="card-top"><span class="pill">sync primitives</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q"><code>sync.Mutex</code>, <code>sync.WaitGroup</code>, and the <code>sync/atomic</code> package — what do they buy you, and what's the sharpest difference from the Rust equivalents?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p><code>sync.Mutex</code> is a bare lock: call <code>.Lock()</code> before touching shared data and <code>.Unlock()</code> when done, but the compiler enforces none of it — the "protected" data is just a regular field sitting next to the mutex by convention. <code>sync.WaitGroup</code> lets one goroutine wait for a set of others to finish: <code>Add(n)</code> before launching them, each calls <code>Done()</code> when finished, <code>Wait()</code> blocks until the counter hits zero. <code>sync/atomic</code> gives lock-free primitives (<code>atomic.Int64</code>, compare-and-swap) for simple counters or flags where a full mutex would be overkill.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span><code>Mutex&lt;T&gt;</code> wraps the data — you cannot touch <code>T</code> without going through <code>.lock()</code>, so the borrow checker makes "forgot to lock" a compile error, not a runtime bug.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li><code>sync.Mutex</code> protects <em>nothing</em> by the type system — it's a bare lock, and it's on you to remember which fields it guards and to always lock before touching them. This is the single biggest DX gap vs Rust's <code>Mutex&lt;T&gt;</code>, and worth saying explicitly.</li>
+            <li><code>sync.WaitGroup</code>: <code>Add</code>/<code>Done</code>/<code>Wait</code> to block until a set of goroutines finish — roughly collecting a <code>Vec&lt;JoinHandle&gt;</code> and joining them all, or <code>tokio::join!</code> for a fixed set.</li>
+            <li><code>sync/atomic</code> (<code>atomic.Int64</code> etc.) maps directly to <code>std::sync::atomic::AtomicI64</code> — same lock-free CAS-based primitives underneath.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How would you catch a "forgot to lock" bug in Go, given the compiler won't?</li>
+          <li>When would you reach for a channel instead of a mutex to protect shared state?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="f4">
+      <div class="card-top"><span class="pill">Error handling</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Go has no <code>Result&lt;T,E&gt;</code> — errors are just values. Explain <code>errors.Is</code> vs <code>errors.As</code> and how <code>%w</code> wrapping works, and name the one safety property Go gives up here that Rust doesn't.</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>In Go, an error is any value satisfying <code>interface{ Error() string }</code> — there's no special language support, no exceptions. The convention is a function returns <code>(result, error)</code> and the caller checks <code>if err != nil</code>. <code>fmt.Errorf("context: %w", err)</code> wraps an error while keeping the original accessible in a chain. <code>errors.Is(err, target)</code> asks "does this chain contain that specific sentinel error" (e.g. <code>sql.ErrNoRows</code>). <code>errors.As(err, &amp;target)</code> asks "does this chain contain an error of this concrete type," and if so assigns it into <code>target</code> so you can read its fields.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span><code>Result&lt;T,E&gt;</code> is <code>#[must_use]</code> — the compiler nags if you drop it silently. <code>?</code> propagates and uses <code>From&lt;E&gt;</code> to convert at the boundary, which is effectively automatic wrapping; <code>anyhow::Context</code> is the manual version of Go's <code>%w</code>.</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li><code>fmt.Errorf("doing x: %w", err)</code> wraps <code>err</code>, preserving it in a chain rather than stringifying it away.</li>
+            <li><code>errors.Is(err, sentinel)</code> walks the chain checking equality (or an <code>Is</code> method) against a known sentinel value — "is this that specific error, however deep it's wrapped."</li>
+            <li><code>errors.As(err, &amp;target)</code> walks the chain looking for the first error assignable to <code>target</code>'s concrete type — "give me the typed error out of this chain."</li>
+            <li>The safety Go gives up: <strong>nothing forces you to check <code>err</code></strong>. <code>if err != nil</code> is convention, not compiler-enforced — an ignored error compiles clean. Rust's <code>Result</code> makes that a type-level obligation.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How would a linter catch an ignored error in a Go codebase, since the compiler won't?</li>
+          <li>When would you deliberately use a sentinel error vs a typed error struct?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="f5">
+      <div class="card-top"><span class="pill">Interfaces vs traits</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">How does a Go type satisfy an interface, and how is that fundamentally different from implementing a Rust trait?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>A Go interface is a set of method signatures. Any type that happens to implement all of them satisfies the interface automatically — there's no <code>impl InterfaceName for Type</code> anywhere; the compiler just checks the method set matches wherever the interface is used. This is structural typing (sometimes called "duck typing, but statically checked"): you can define a two-line interface in your own package and pass in a struct from a totally unrelated library, as long as its methods line up — and a type can satisfy interfaces its author never even knew existed.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>A trait must be explicitly implemented (<code>impl Trait for Type</code>), checked against coherence/orphan rules, and can carry default methods and generic bounds resolved at compile time (static dispatch) or via <code>dyn Trait</code> (dynamic dispatch).</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>Go interface satisfaction is <strong>implicit / structural</strong>: a type satisfies an interface just by having the right method set — no <code>implements</code> keyword, no declaration anywhere near the type or the interface.</li>
+            <li>This means you can define an interface after the fact, in a consuming package, for a type you don't own — a pattern Rust's orphan rule explicitly blocks.</li>
+            <li>Trade-off: it's easy to satisfy an interface by accident (wrong method, right signature), and there's no compiler prompt telling you which interfaces a type does or doesn't implement — you find out at the call site.</li>
+            <li>Dynamic dispatch is the default via an interface value (a type+pointer pair); Go's generics (1.18+) added compile-time-checked type parameters, but interfaces remain the primary polymorphism tool, unlike Rust where trait bounds are more idiomatic than trait objects.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How do you discover, in a large Go codebase, which interfaces a struct satisfies?</li>
+          <li>When would you reach for Go generics instead of an interface?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="f6">
+      <div class="card-top"><span class="pill">Struct embedding</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Go doesn't have inheritance, but it has struct embedding. What does embedding actually do, and where does the "not inheritance" distinction bite you?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>Struct embedding nests one struct (or interface) inside another without naming the field, e.g. <code>type Server struct { *log.Logger }</code>. Go "promotes" the embedded type's methods and fields up to the outer struct, so <code>server.Println(...)</code> works even though <code>Println</code> is defined on <code>*log.Logger</code>. It looks like inheritance but is really automatic delegation — there's no dynamic dispatch. If <code>Server</code> defines its own <code>Println</code>, it simply shadows the embedded one; calls from inside the embedded type's own methods still go to the embedded type's version, never the outer "override."</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rust"><span class="label">Rust anchor</span>Rust has no embedding sugar — composition is explicit: a field plus manual delegation, or leaning on <code>Deref</code> for smart-pointer ergonomics (and that's considered a footgun when abused for non-pointer types).</div>
+        <div class="block go"><span class="label">Go answer</span>
+          <ul>
+            <li>Embedding a struct (or interface) as an unnamed field <strong>promotes</strong> its fields and methods to the outer type — you can call <code>outer.Method()</code> even though <code>Method</code> is defined on the embedded type.</li>
+            <li>It's syntactic delegation, not polymorphism: there's no virtual dispatch. If the outer type defines a method with the same name, it shadows the embedded one statically — the embedded type's own methods never call the outer's overrides (no "override" concept at all).</li>
+            <li>Where it bites: people reach for embedding expecting OOP-style "is-a" inheritance and get surprised that an embedded interface's method calling another method on itself won't pick up the outer type's version.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>Give an example where embedding is the right tool vs where plain composition would be clearer.</li>
+        </ul></div>
+      </div>
+    </article>
+  </section>
+
+  <section id="rest" class="panel">
+    <p class="intro">This was your flagged weak spot last time. Answer <strong>with the spec reasoning</strong>, not just "PUT replaces, PATCH updates" — that's the sentence that got you into trouble.</p>
+
+    <article class="card" data-qid="r1">
+      <div class="card-top"><span class="pill">PUT vs PATCH</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Define PUT vs PATCH precisely — including the idempotency claim people usually get wrong about PATCH.</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>REST's HTTP verbs each carry a contract beyond "this action happens." <b>PUT</b> means: here is the complete, final state of this resource — store exactly this. <b>PATCH</b> means: here is a set of changes — apply them to whatever the resource currently is. That distinction is why PUT is idempotent by definition (replacing with the same full state twice is a no-op the second time), while PATCH's idempotency depends entirely on what the patch operation says: "set field to X" is idempotent, "append to array" or "increment" is not.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Model answer</span>
+          <ul>
+            <li><strong>PUT</strong> replaces the entire resource at a known URI with the full representation you send. It's <em>guaranteed idempotent</em> by spec — sending the same PUT N times leaves the server in the same state as sending it once. A field you omit from the body is semantically cleared, because it's a full replace.</li>
+            <li><strong>PATCH</strong> applies a partial modification — the body is a description of a change (a JSON Merge Patch or JSON Patch document), not a full resource. PATCH is <em>not</em> guaranteed idempotent by spec (RFC 5789) — "set status to active" happens to be idempotent, but "increment view count by 1" is a valid PATCH and clearly isn't.</li>
+            <li>The trap: saying "PATCH is idempotent" as a blanket rule. It depends on the semantics of the specific patch operation.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>Your PATCH endpoint takes a full JSON body of just the changed fields — is that JSON Merge Patch or JSON Patch, and what's the difference?</li>
+          <li>Would you ever implement PATCH as idempotent on purpose, even if the spec doesn't require it? Why?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="r2">
+      <div class="card-top"><span class="pill">Status codes</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">When do you return 200 vs 201 vs 204? And 400 vs 422? And 401 vs 403?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>HTTP status codes fall into families: 2xx means success (with sub-distinctions for what kind of success — created vs. no body vs. accepted-but-async), 4xx means the client did something wrong (malformed, not authenticated, not permitted, not found, conflicting state), 5xx means the server broke. The skill isn't memorizing every code — it's picking the one whose stated meaning genuinely matches the situation. A 404 for "you're not allowed to see this" hides whether the resource exists at all from an unauthorized caller, which is sometimes exactly the point and sometimes a bug that breaks legitimate error messages.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Model answer</span>
+          <ul>
+            <li><strong>200 OK</strong>: successful request with a response body (GET, or a PUT/PATCH that returns the updated resource).</li>
+            <li><strong>201 Created</strong>: POST that created a new resource — include a <code>Location</code> header pointing at it.</li>
+            <li><strong>204 No Content</strong>: succeeded, nothing to return (a DELETE, or a PUT/PATCH you don't echo back).</li>
+            <li><strong>400 Bad Request</strong>: the request is malformed — bad JSON, wrong types, missing required structure. <strong>422 Unprocessable Entity</strong>: well-formed and parseable, but semantically invalid — fails a business rule or validation check. (Some APIs collapse both into 400; know the distinction exists and be able to defend either choice.)</li>
+            <li><strong>401 Unauthorized</strong>: really means <em>unauthenticated</em> — no or invalid credentials. <strong>403 Forbidden</strong>: authenticated, but not permitted to do this.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>A user hits an endpoint for a resource that exists but isn't theirs — 403 or 404? Defend it.</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="r3">
+      <div class="card-top"><span class="pill">Resource naming &amp; versioning</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">What makes a URL scheme "RESTful" in terms of naming, and how would you version an API?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>REST resource design treats a URL as a noun identifying a thing, and the HTTP method as the verb acting on it. A collection is plural (<code>/users</code>); a specific member is the collection plus an identifier (<code>/users/42</code>); a sub-resource nests only when it's genuinely owned by the parent and doesn't make sense standalone (<code>/users/42/orders</code>). Versioning exists because a breaking change to a resource's shape can't just silently ship — either the URL declares the version, or the client negotiates it via a header. Both are legitimate as long as the team is consistent and has an actual deprecation policy.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Model answer</span>
+          <ul>
+            <li>Nouns, not verbs — the HTTP method is the verb. <code>/getUser</code> is wrong; <code>GET /users/{id}</code> is right.</li>
+            <li>Plural collection names (<code>/users</code>, not <code>/user</code>), nested only as deep as ownership genuinely goes (<code>/users/{id}/orders</code> is fine; five levels deep usually means you should flatten with a query param instead).</li>
+            <li>Versioning: URL-prefix (<code>/v1/users</code>) is simple, cacheable, and debuggable by eye but pollutes the URL and implies the resource itself changed. Header-based (<code>Accept: application/vnd.api+json;version=1</code>) keeps URLs clean but is harder to explore/curl and easy to forget. Most teams pick URL-prefix for the ergonomics and accept the "impurity."</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How do you deprecate v1 once v2 ships without breaking existing clients overnight?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="r4">
+      <div class="card-top"><span class="pill">Pagination</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Offset/limit pagination vs cursor-based — what breaks with offset/limit at scale?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>Any pagination scheme answers "given this page, how do I get the next one." <b>Offset/limit</b> answers with a row count to skip — trivial to implement, but the database still has to scan past <code>offset</code> rows to find where to start, and if a row is inserted or deleted while you're paging, your window drifts and you can see a duplicate or skip an item. <b>Cursor (keyset) pagination</b> instead answers with "the last thing you saw" — usually an indexed column's value — and asks for rows after that. It's stable under concurrent writes and its cost doesn't grow with depth, at the cost of losing random access to an arbitrary page number.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Model answer</span>
+          <ul>
+            <li><strong>Offset/limit</strong>: simple to implement and to jump to an arbitrary page, but (a) the DB still has to scan and discard the first <code>offset</code> rows, so it gets slower as offset grows, and (b) it drifts under concurrent writes — insert a row before page 2 loads and you'll see a duplicate or skip an item.</li>
+            <li><strong>Cursor / keyset pagination</strong>: page by "give me rows after this sort key," using an indexed column as the cursor. Stable under concurrent writes, and query cost doesn't grow with page depth — but you lose the ability to jump straight to page 40.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How do you paginate a feed sorted by a non-unique column (e.g. created_at with ties)?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="r5">
+      <div class="card-top"><span class="pill">Error response shape</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">What does a well-designed error response body look like, and why?</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>An API's error responses are part of its contract just as much as its success responses — a client needs to parse and branch on them programmatically, not just display them. The core idea is separating a stable, machine-readable <code>code</code> a client can switch on from a human-readable <code>message</code> that can change wording freely without breaking anyone's integration. Consistency matters more than any specific shape: every endpoint should return errors in the same envelope, or client code ends up special-casing each one.</p></div>
+      <textarea class="ans" rows="4" placeholder="Say it out loud, then type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Model answer</span>
+          <ul>
+            <li>A consistent envelope across every endpoint, e.g. <code>{"error":{"code":"VALIDATION_FAILED","message":"...","fields":[...]}}</code>.</li>
+            <li>A machine-readable <code>code</code> the client can branch on programmatically, separate from a human-readable <code>message</code> meant for logs/display — don't make clients string-match the message.</li>
+            <li>Never leak internals: no stack traces, no raw DB error text, no SQL fragments in the response body.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="r6">
+      <div class="card-top"><span class="pill">Redesign exercise</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Redesign this API out loud before revealing — say each line as you fix it and why.</p>
+      <button class="teach-toggle" type="button">Teach me this first</button>
+      <div class="teach-body" hidden><p>Run each line through a checklist: is the verb doing double duty as part of the path (it shouldn't be — the HTTP method is the verb)? Does a GET ever mutate state (it never should — GET must be safe and cacheable, so a proxy or crawler prefetching it can't cause damage)? Is the identifier sitting in the path, not buried in a query string, for anything beyond filtering/search? Is the body doing a full-replace job (PUT) or a partial-patch job (PATCH)?</p></div>
+      <pre><code>GET  /getUserData?id=5
+POST /createNewUser
+GET  /deleteUser?id=5
+POST /user/update?id=5&amp;name=John</code></pre>
+      <textarea class="ans" rows="4" placeholder="Type your redesigned routes + the reasoning for each..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Model answer</span>
+<pre><code>GET    /v1/users/5
+POST   /v1/users
+DELETE /v1/users/5
+PATCH  /v1/users/5   { "name": "John" }</code></pre>
+          <ul>
+            <li>Verb dropped from the path — the HTTP method carries it now.</li>
+            <li><code>GET /deleteUser</code> is the worst line: GET must be safe (no side effects) and cacheable — a proxy or crawler prefetching that URL would delete the user. DELETE via query string also leaks the target in logs/browser history.</li>
+            <li><code>update</code> via query params on a POST loses HTTP semantics entirely and isn't idempotent-by-contract; PATCH with a JSON body is both more precise and more correct for a partial update.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section id="projects" class="panel">
+    <p class="intro">These reveals aren't scripted answers about your code — I don't have your source. They're <strong>what the interviewer is listening for</strong>. If your attempt doesn't cover a bullet, that's a real gap to go check in your own repo before the interview.</p>
+
+    <article class="card" data-qid="p1">
+      <div class="card-top"><span class="pill">StuddyBuddy</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Walk me through why you picked Axum over Actix-web for StuddyBuddy. What would make you choose differently next time?<em>Push: don't say "it felt more modern" — name the actual criteria.</em></p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>A concrete axis of comparison: extractor-based routing and tower/tokio ecosystem fit vs Actix's actor-model heritage and historically strong raw-throughput benchmarks/mature middleware ecosystem.</li>
+            <li>Why that axis mattered for <em>this</em> project specifically (e.g. async chat needing tight tokio integration), not a generic "Axum is nicer."</li>
+            <li>One honest regret or limitation you actually hit — a real interviewer discounts an answer with zero trade-offs.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>What would you do differently if you needed to broadcast chat to 10k concurrent WebSocket clients?</li>
+          <li>How does Axum's extractor pattern affect how you test handlers, versus Actix's App/State setup?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="p2">
+      <div class="card-top"><span class="pill">StuddyBuddy</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">How is JWT auth implemented in StuddyBuddy — where does verification happen, and what's your story for expiry and revocation?</p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>Verification happens in middleware/an extractor <em>before</em> the handler runs, not scattered inline per-handler.</li>
+            <li>Access vs refresh token split, and where the signing key lives.</li>
+            <li>The hard part: JWTs are stateless, so what does "logout" or "revoke" actually do server-side? (short TTL + refresh rotation, or a denylist — pick one and defend it.)</li>
+            <li>Claims driving authorization, not just proving identity.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>If a JWT is stolen, how long is the attacker's window with your current design?</li>
+          <li>Why JWT over server-side sessions for an anonymous peer-matching app specifically?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="p3">
+      <div class="card-top"><span class="pill">Decentralized AI (DAI)</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">How does DAI verify a P2P-computed AI task's result is trustworthy? What happens when a node goes offline mid-task?</p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>The trust mechanism itself: redundant computation across multiple nodes + result comparison, or a stake/slashing incentive tied to the blockchain layer.</li>
+            <li>Offline detection — heartbeat/timeout, not silence.</li>
+            <li>What happens to in-flight work: reassigned from scratch vs checkpointed/resumed, and who decides the timeout window.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>What stops a majority of colluding malicious nodes from agreeing on a wrong answer?</li>
+          <li>How do you pick the redundancy factor — what's the cost/trust trade-off?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="p4">
+      <div class="card-top"><span class="pill">PlantGO</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">What stops someone from editing the PlantGO client to just claim a rare card? Where does rarity/ownership actually live?</p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>The client is a dumb renderer of on-chain state — the Solana program/account state is the sole source of truth, never anything the client sends and the server trusts blindly.</li>
+            <li>Rarity determined by program logic (ideally with verifiable randomness), not client-supplied input.</li>
+            <li>Ownership = an SPL token/account owned by the wallet; transfers only happen through program instructions that validate the caller.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>Where does the randomness for rarity come from, and why does that matter for fairness?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="p5">
+      <div class="card-top"><span class="pill">MediVault</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">If a nodeMCU device drops connection mid-reminder-cycle, do doses get missed or duplicated in MediVault? Walk me through both directions.</p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>Idempotency on the alert path — dedupe by dose-id/timestamp so a flapping reconnect doesn't re-send the same alert.</li>
+            <li>How you distinguish "device is offline" from "brief network blip" — heartbeat + last-seen timeout, not an instant flag.</li>
+            <li>What happens to readings taken while disconnected: buffered on-device and flushed on reconnect, or silently lost?</li>
+            <li>The honest failure mode from the end user's point of view — a missed dose reminder is worse than a duplicate one; does the design reflect that priority?</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>How would you make the low-supply email alert idempotent so a flapping connection doesn't spam the user?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="p6">
+      <div class="card-top"><span class="pill">sabinnylol</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">sabinnylol's generators are "pluggable." Walk me through that abstraction, and tell me what breaks if two generators produce the same shortcode at the same time.</p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>What the plugin boundary actually is (a trait/interface each generator implements) and how a new one gets registered.</li>
+            <li>The collision case is the real test: an application-level "check then insert" is a race condition under concurrency — the real guard has to be a unique constraint at the database level, with the app handling the resulting conflict error.</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>Two requests generate the same code at the same instant — walk me through what happens in your system right now, not what should happen.</li>
+          <li>How would you add a per-user rate limit without touching every generator's code?</li>
+        </ul></div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="p7">
+      <div class="card-top"><span class="pill">KU Computer Club backend</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">As backend maintainer for the club's auth/authz, how did you separate authentication from authorization, and how were credentials stored?</p>
+      <textarea class="ans" rows="4" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Interviewer is listening for</span>
+          <ul>
+            <li>Authn ("who are you" — login, token issuance) as a distinct layer from authz ("what can you do" — role/permission check), not one blob of logic per handler.</li>
+            <li>Passwords hashed with a slow, salted algorithm (bcrypt/argon2) — never anything reversible.</li>
+            <li>Where the role check actually lives (middleware vs inside each handler) and how permissions are modeled (coarse roles vs finer claims).</li>
+          </ul>
+        </div>
+        <div class="followups"><p class="fu-label">Likely follow-ups</p><ul>
+          <li>An officer's permissions change mid-session — does it take effect immediately, or only on next login? Why did it end up that way?</li>
+          <li>What's the blast radius if the JWT/session signing secret leaks?</li>
+        </ul></div>
+      </div>
+    </article>
+  </section>
+
+  <section id="systemdesign" class="panel">
+    <p class="intro">Rooted in what you actually built, but scaled up. Structure your answer around real levers (statefulness, data layer, backpressure) — general topics from the syllabus (databases, caching, task queues, fault tolerance, scaling, concurrency) should show up as tools you reach for, not buzzwords you drop.</p>
+
+    <article class="card" data-qid="s1">
+      <div class="card-top"><span class="pill">Databases · Caching · Scaling</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Scale StuddyBuddy's anonymous peer-matching to 100k concurrent users. Where does it break first, and what do you change?</p>
+      <textarea class="ans" rows="5" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Dimensions a strong answer touches</span>
+          <ul>
+            <li>App servers stateless behind a load balancer — matching state can't live in one instance's memory, or users on different instances never match.</li>
+            <li>Move the matching queue/criteria into a shared store (Redis) so any instance can pair any two waiting users.</li>
+            <li>DB read scaling (indexes, read replicas) once match history/lookups grow.</li>
+            <li>WebSocket/chat fan-out at 100k connections: sticky sessions or a pub/sub broker so a message reaches a user regardless of which instance holds their socket.</li>
+            <li>Backpressure when demand for a subject outstrips supply of matchable peers — a queue with a visible wait state, not a silent hang.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="s2">
+      <div class="card-top"><span class="pill">Fault Tolerance</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Design DAI's task distribution to tolerate Byzantine/faulty nodes. Sketch the approach and the failure modes you're designing against.</p>
+      <textarea class="ans" rows="5" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Dimensions a strong answer touches</span>
+          <ul>
+            <li>Redundant execution across N nodes + comparing results (majority vote / consensus) rather than trusting a single node.</li>
+            <li>A reputation or stake-weighted trust score that shifts over time, not a flat "trust everyone equally."</li>
+            <li>Three distinct failure modes handled differently: crash (node just disappears — timeout + retry), Byzantine (node returns a plausible-looking wrong answer — needs the redundancy/vote), and slow-but-honest (needs a timeout that doesn't unfairly penalize it).</li>
+            <li>The cost trade-off: redundancy factor directly multiplies compute cost, so it should track how much you actually distrust the network, not be a fixed constant.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="s3">
+      <div class="card-top"><span class="pill">Rate limiting · Idempotency</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">Add rate limiting and idempotency to sabinnylol's redirect/shortcode service.</p>
+      <textarea class="ans" rows="5" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Dimensions a strong answer touches</span>
+          <ul>
+            <li>Rate limit state has to live in a shared store (Redis, token bucket or sliding window), keyed by IP/user — per-instance in-memory counters silently reset the limit behind a load balancer.</li>
+            <li>On limit exceeded: 429 with a <code>Retry-After</code> header and the standard error envelope, not a bare 500 or silent drop.</li>
+            <li>Idempotency for the shortcode-create endpoint: accept a client-supplied idempotency key, cache the response for that key, and return the cached result on retry instead of minting a second shortcode for the same logical request.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="card" data-qid="s4">
+      <div class="card-top"><span class="pill">Concurrency in Go</span><button class="mark" type="button">Mark drilled</button></div>
+      <p class="q">MediVault needs to stay reliable when nodeMCU devices drop connection. If you rebuilt the device-handling layer in Go, how would goroutines and channels model this?</p>
+      <textarea class="ans" rows="5" placeholder="Type your attempt..."></textarea>
+      <button class="reveal-toggle" type="button">Reveal breakdown</button>
+      <div class="reveal-body" hidden>
+        <div class="block rubric"><span class="label">Dimensions a strong answer touches</span>
+          <ul>
+            <li>One goroutine per device connection is cheap precisely because of the M:N scheduler (fundamentals section) — thousands of lightweight goroutines, not thousands of OS threads.</li>
+            <li>A heartbeat via <code>time.Ticker</code> combined with <code>select</code> against a timeout channel to detect a drop, instead of waiting on a blocking read forever.</li>
+            <li>A fan-in pattern: each device goroutine writes events onto one shared channel, a single goroutine consumes and processes in order.</li>
+            <li>Backpressure: a bounded channel with an explicit drop-oldest or block policy if the processing side falls behind — an unbounded channel just hides the problem until memory blows up.</li>
+            <li>Clean shutdown on disconnect via <code>context.Context</code> cancellation, so a dropped device doesn't leak its goroutine forever.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section id="structure" class="panel">
+    <div class="rubric-card">
+      <h3>Two frameworks, pick by question type</h3>
+      <p><strong>Behavioral</strong> ("tell me about a time...") → Situation → Action → Result. Keep Situation to one sentence, spend most of your time in Action, close with a concrete Result.</p>
+      <div class="steps">
+        <div class="step"><b>Situation</b>1 sentence of context</div>
+        <div class="step"><b>Action</b>most of the answer</div>
+        <div class="step"><b>Result</b>concrete outcome</div>
+        <div class="step"><b>—</b>&nbsp;</div>
+      </div>
+      <p><strong>Technical / opinion</strong> ("why Axum over Actix?") → lead with the claim, then justify. This is the one you were rambling on — the fix is almost entirely about order.</p>
+      <div class="steps">
+        <div class="step"><b>Claim</b>the answer, first sentence</div>
+        <div class="step"><b>Reasoning</b>the 1-2 criteria behind it</div>
+        <div class="step"><b>Trade-off</b>what you gave up</div>
+        <div class="step"><b>Anchor</b>a specific detail proving you lived it</div>
+      </div>
+      <p>The failure mode to kill: opening with backstory ("so basically what happened was...") before the claim. Say the answer first, then earn it.</p>
+    </div>
+
+    <div class="rubric-card">
+      <h3>Answer linter</h3>
+      <p>Paste (or type) an answer you gave above. This checks structure and filler mechanically — it can't judge if you're <em>right</em>, only whether you sound organized.</p>
+      <textarea class="ans" id="linter-input" rows="6" placeholder="Paste your answer here..."></textarea>
+      <button class="reveal-toggle" id="lint-btn" type="button">Analyze</button>
+      <div class="linter-out" id="linter-out"></div>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.teach-toggle').forEach(function(btn){
+    var body = btn.nextElementSibling;
+    btn.addEventListener('click', function(){
+      var hidden = body.hidden;
+      body.hidden = !hidden;
+      btn.textContent = hidden ? 'Hide explanation' : 'Teach me this first';
+    });
+  });
+
+  var tabs = document.querySelectorAll('.tab');
+  var panels = document.querySelectorAll('.panel');
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      tabs.forEach(function(x){x.classList.remove('active')});
+      panels.forEach(function(x){x.classList.remove('active')});
+      t.classList.add('active');
+      document.getElementById(t.dataset.tab).classList.add('active');
+    });
+  });
+
+  function safeGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function safeSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+  var cards = document.querySelectorAll('.card');
+  var progressEl = document.getElementById('progress');
+
+  function updateProgress(){
+    var total = cards.length, done = 0;
+    cards.forEach(function(c){
+      if (c.querySelector('.mark').getAttribute('aria-pressed') === 'true') done++;
+    });
+    progressEl.textContent = done + ' / ' + total + ' drilled';
+  }
+
+  cards.forEach(function(card){
+    var qid = card.dataset.qid;
+    var ta = card.querySelector('.ans');
+    var revealBtn = card.querySelector('.reveal-toggle');
+    var revealBody = card.querySelector('.reveal-body');
+    var markBtn = card.querySelector('.mark');
+
+    if (ta) {
+      var saved = safeGet('rgdrill_ans_' + qid);
+      if (saved) ta.value = saved;
+      ta.addEventListener('input', function(){ safeSet('rgdrill_ans_' + qid, ta.value); });
+    }
+
+    if (revealBtn && revealBody) {
+      revealBtn.addEventListener('click', function(){
+        var hidden = revealBody.hidden;
+        revealBody.hidden = !hidden;
+        revealBtn.textContent = hidden ? 'Hide breakdown' : 'Reveal breakdown';
+      });
+    }
+
+    if (markBtn) {
+      var pressed = safeGet('rgdrill_mark_' + qid) === '1';
+      markBtn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      markBtn.textContent = pressed ? 'Drilled ✓' : 'Mark drilled';
+      markBtn.addEventListener('click', function(){
+        var now = markBtn.getAttribute('aria-pressed') !== 'true';
+        markBtn.setAttribute('aria-pressed', now ? 'true' : 'false');
+        markBtn.textContent = now ? 'Drilled ✓' : 'Mark drilled';
+        safeSet('rgdrill_mark_' + qid, now ? '1' : '0');
+        updateProgress();
+      });
+    }
+  });
+  updateProgress();
+
+  var FILLERS = ['um','uh','like','basically','actually','you know','kind of','sort of','literally','i mean','right?'];
+  var REASONING = ['because','therefore','however','trade-off','tradeoff','first','then','as a result','which means','so that','since'];
+
+  var lintBtn = document.getElementById('lint-btn');
+  var lintOut = document.getElementById('linter-out');
+  var lintIn = document.getElementById('linter-input');
+  if (lintIn) {
+    var savedLint = safeGet('rgdrill_lint');
+    if (savedLint) lintIn.value = savedLint;
+    lintIn.addEventListener('input', function(){ safeSet('rgdrill_lint', lintIn.value); });
+  }
+
+  if (lintBtn) {
+    lintBtn.addEventListener('click', function(){
+      var text = lintIn.value.trim();
+      lintOut.innerHTML = '';
+      lintOut.style.display = 'flex';
+      if (!text) {
+        lintOut.innerHTML = '<div class="linter-row">Paste an answer first.</div>';
+        return;
+      }
+      var lower = text.toLowerCase();
+      var words = text.split(/\s+/).filter(Boolean);
+      var sentences = text.split(/[.!?]+/).map(function(s){return s.trim();}).filter(Boolean);
+
+      var fillerHits = [];
+      FILLERS.forEach(function(f){
+        var re = new RegExp('\\b' + f.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b','gi');
+        var m = lower.match(re);
+        if (m) fillerHits.push(f + ' ×' + m.length);
+      });
+
+      var reasoningHits = 0;
+      REASONING.forEach(function(r){
+        var re = new RegExp('\\b' + r.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b','gi');
+        if (lower.match(re)) reasoningHits++;
+      });
+
+      function row(label, value, ok){
+        return '<div class="linter-row"><span>'+label+'</span><span class="v '+(ok?'tag-ok':'tag-warn')+'">'+value+'</span></div>';
+      }
+
+      var wc = words.length;
+      var lenOk = wc >= 40 && wc <= 260;
+      lintOut.innerHTML += row('Length', wc + ' words' + (wc < 40 ? ' — thin, add reasoning or an anchor' : (wc > 260 ? ' — cut it, aim ~120-180' : ' — good range')), lenOk);
+
+      var fillerCount = fillerHits.length;
+      lintOut.innerHTML += row('Filler words', fillerCount === 0 ? 'none found' : fillerHits.join(', '), fillerCount === 0);
+
+      lintOut.innerHTML += row('Sentences', sentences.length + ' sentences, ' + (sentences.length ? Math.round(wc/sentences.length) : 0) + ' words/sentence avg', sentences.length > 0 && (wc/Math.max(sentences.length,1)) < 28);
+
+      lintOut.innerHTML += row('Reasoning markers', reasoningHits + ' found (because/therefore/trade-off/etc.)', reasoningHits >= 2);
+
+      var leadsWithClaim = sentences.length > 0 && sentences[0].split(/\s+/).length <= 22 && !/^(so|well|basically|okay|um)/i.test(sentences[0].trim());
+      lintOut.innerHTML += row('Leads with the claim', leadsWithClaim ? 'first sentence looks direct' : 'first sentence may be backstory — say the answer first', leadsWithClaim);
+    });
+  }
+})();
+</script>
